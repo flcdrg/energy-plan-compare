@@ -30,7 +30,7 @@ public class EligibilityFilterTests
     [Fact]
     public void IsEligible_AllowsPlanWithoutRestrictions()
     {
-        var plan = new PlanData("P0", "Plan", "Retailer", "SR", [new Contract("SR", null, null, null)]);
+        var plan = new PlanData("P0", "Plan", "Retailer", "SR", null, null, [new Contract("SR", null, null, null)]);
         var filter = new EligibilityFilter();
 
         var eligible = filter.IsEligible(plan, new EligibilityRequirements(false, false, false, false), out _);
@@ -39,6 +39,5 @@ public class EligibilityFilterTests
     }
 
     private static PlanData PlanWithRestriction(EligibilityRestriction restriction) =>
-        new("P1", "Restricted", "Retailer", "SR", [new Contract("SR", null, null, [restriction])]);
+        new("P1", "Restricted", "Retailer", "SR", null, null, [new Contract("SR", null, null, [restriction])]);
 }
-

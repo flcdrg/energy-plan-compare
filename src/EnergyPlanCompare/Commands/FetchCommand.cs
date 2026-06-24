@@ -32,7 +32,12 @@ public static class FetchCommand
 
         var fetchAllOption = new Option<bool>("--fetch-all")
         {
-            Description = "Fetch every plan by ID, including SR plans"
+            Description = "Fetch every plan by ID (default behavior when filtering current plans)"
+        };
+
+        var includeHistoricalOption = new Option<bool>("--include-historical")
+        {
+            Description = "Include historical/non-current plans"
         };
 
         var concurrencyOption = new Option<int>("--concurrency")
@@ -46,6 +51,7 @@ public static class FetchCommand
         command.Options.Add(outputOption);
         command.Options.Add(postcodeOption);
         command.Options.Add(fetchAllOption);
+        command.Options.Add(includeHistoricalOption);
         command.Options.Add(concurrencyOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -54,6 +60,7 @@ public static class FetchCommand
             var output = parseResult.GetValue(outputOption) ?? new FileInfo("plans.json");
             var postcode = parseResult.GetValue(postcodeOption) ?? "YOUR_POSTCODE";
             var fetchAll = parseResult.GetValue(fetchAllOption);
+            var includeHistorical = parseResult.GetValue(includeHistoricalOption);
             var concurrency = parseResult.GetValue(concurrencyOption);
 
             using var httpClient = new HttpClient();
@@ -72,7 +79,7 @@ public static class FetchCommand
                 .StartAsync(async context =>
                 {
                     var task = context.AddTask("Loading plan data", maxValue: 1);
-                    plans = await fetcher.FetchPlansAsync(url, postcode, fetchAll, concurrency, (done, total) =>
+                    plans = await fetcher.FetchPlansAsync(url, postcode, fetchAll, !includeHistorical, concurrency, (done, total) =>
                     {
                         task.MaxValue = Math.Max(1, total);
                         task.Value = done;

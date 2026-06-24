@@ -13,6 +13,8 @@ public class CostCalculatorTests
             "Single Rate Plan",
             "Test Retailer",
             "SR",
+            null,
+            null,
             [
                 new Contract(
                     "SR",
@@ -45,6 +47,8 @@ public class CostCalculatorTests
             "Tier Plan",
             "Test Retailer",
             "SR",
+            null,
+            null,
             [
                 new Contract(
                     "SR",
@@ -76,6 +80,8 @@ public class CostCalculatorTests
             "TOU Plan",
             "Test Retailer",
             "TOU",
+            null,
+            null,
             [
                 new Contract(
                     "TOU",
@@ -111,4 +117,3 @@ public class CostCalculatorTests
 
     private static decimal[] EmptyDay() => new decimal[288];
 }
-

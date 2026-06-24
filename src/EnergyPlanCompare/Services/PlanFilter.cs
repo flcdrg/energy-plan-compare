@@ -4,14 +4,14 @@ namespace EnergyPlanCompare.Services;
 
 public sealed class PlanFilter
 {
-    public List<PlanData> FilterControlledLoad(IEnumerable<PlanData> plans, bool controlledLoadOnly)
+    public List<PlanData> FilterControlledLoad(IEnumerable<PlanData> plans, bool includeControlledLoad)
     {
-        if (!controlledLoadOnly)
+        if (includeControlledLoad)
         {
             return plans.ToList();
         }
 
-        return plans.Where(IsControlledLoad).ToList();
+        return plans.Where(plan => !IsControlledLoad(plan)).ToList();
     }
 
     public bool IsControlledLoad(PlanData plan)
@@ -26,4 +26,3 @@ public sealed class PlanFilter
         return pricingModel.Contains("CL", StringComparison.OrdinalIgnoreCase);
     }
 }
-

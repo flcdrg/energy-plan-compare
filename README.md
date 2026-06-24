@@ -16,7 +16,8 @@ dotnet run --project src/EnergyPlanCompare -- fetch \
   --output plans.json
 ```
 
-By default, only TOU plans are enriched with per-plan detail calls (SR plans are read from the list response). Use `--fetch-all` to fetch details for every plan.
+By default, fetch stores only **currently available** plans (published + active tariff dates), which requires per-plan detail lookups.
+Use `--include-historical` to keep historical/expired plans. `--fetch-all` is also available to force detail fetches in any mode.
 
 The fetch command now shows a progress bar while loading plans.
 
@@ -35,7 +36,7 @@ dotnet run --project src/EnergyPlanCompare -- calculate \
 Optional eligibility flags: `--ev`, `--battery`, `--pensioner`.
 Use `--top` to limit how many ranked plans are displayed.
 Use `--url` to include a direct Energy Made Easy URL for each displayed plan.
-Use `--controlled-load` to filter output to controlled-load plans only.
+Controlled-load plans are excluded by default; use `--controlled-load` to include them.
 
 ## Test
 

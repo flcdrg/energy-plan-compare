@@ -24,6 +24,8 @@ public sealed record PlanData(
     [property: JsonPropertyName("planName")] string PlanName,
     [property: JsonPropertyName("retailerName")] string RetailerName,
     [property: JsonPropertyName("tariffType")] string TariffType,
+    [property: JsonPropertyName("planStatus")] string? PlanStatus,
+    [property: JsonPropertyName("effectiveDate")] string? EffectiveDate,
     [property: JsonPropertyName("contract")] List<Contract> Contract);
 
 public sealed record Contract(

@@ -6,7 +6,7 @@ namespace EnergyPlanCompare.Tests;
 public class PlanFilterTests
 {
     [Fact]
-    public void FilterControlledLoad_WhenDisabled_ReturnsAllPlans()
+    public void FilterControlledLoad_WhenDisabled_ExcludesControlledLoadPlans()
     {
         var filter = new PlanFilter();
         var plans = new List<PlanData>
@@ -15,13 +15,14 @@ public class PlanFilterTests
             BuildPlan("P2", "TOUCL", "TOUCL")
         };
 
-        var result = filter.FilterControlledLoad(plans, controlledLoadOnly: false);
+        var result = filter.FilterControlledLoad(plans, includeControlledLoad: false);
 
-        Assert.Equal(2, result.Count);
+        var only = Assert.Single(result);
+        Assert.Equal("P1", only.PlanId);
     }
 
     [Fact]
-    public void FilterControlledLoad_WhenEnabled_ReturnsOnlyControlledLoadPlans()
+    public void FilterControlledLoad_WhenEnabled_ReturnsAllPlans()
     {
         var filter = new PlanFilter();
         var plans = new List<PlanData>
@@ -31,9 +32,10 @@ public class PlanFilterTests
             BuildPlan("P3", "TOU", "SRCL")
         };
 
-        var result = filter.FilterControlledLoad(plans, controlledLoadOnly: true);
+        var result = filter.FilterControlledLoad(plans, includeControlledLoad: true);
 
-        Assert.Equal(2, result.Count);
+        Assert.Equal(3, result.Count);
+        Assert.Contains(result, p => p.PlanId == "P1");
         Assert.Contains(result, p => p.PlanId == "P2");
         Assert.Contains(result, p => p.PlanId == "P3");
     }
@@ -44,6 +46,7 @@ public class PlanFilterTests
             $"Plan {planId}",
             "Retailer",
             tariffType,
+            null,
+            null,
             [new Contract(pricingModel, null, null, null)]);
 }
-

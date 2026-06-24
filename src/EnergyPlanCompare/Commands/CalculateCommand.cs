@@ -37,7 +37,7 @@ public static class CalculateCommand
         };
         var controlledLoadOption = new Option<bool>("--controlled-load")
         {
-            Description = "Show only controlled-load plans"
+            Description = "Include controlled-load plans in results (excluded by default)"
         };
 
         var command = new Command("calculate", "Calculate and rank eligible plan costs");
@@ -62,7 +62,7 @@ public static class CalculateCommand
                 parseResult.GetValue(pensionerOption));
             var top = parseResult.GetValue(topOption);
             var showUrls = parseResult.GetValue(urlOption);
-            var controlledLoadOnly = parseResult.GetValue(controlledLoadOption);
+            var includeControlledLoad = parseResult.GetValue(controlledLoadOption);
 
             if (top < 1)
             {
@@ -87,7 +87,7 @@ public static class CalculateCommand
 
             var calculator = new CostCalculator(new EligibilityFilter());
             var planFilter = new PlanFilter();
-            var filteredPlans = planFilter.FilterControlledLoad(stored.Plans, controlledLoadOnly);
+            var filteredPlans = planFilter.FilterControlledLoad(stored.Plans, includeControlledLoad);
             List<PlanCostResult> ranked = [];
             await AnsiConsole.Status().StartAsync("Calculating plan costs...", _ =>
             {

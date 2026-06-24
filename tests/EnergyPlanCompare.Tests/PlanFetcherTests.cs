@@ -110,7 +110,7 @@ public class PlanFetcherTests
 
         using var client = new HttpClient(handler);
         var fetcher = new PlanFetcher(client);
-        var stored = await fetcher.FetchPlansAsync("https://api.energymadeeasy.gov.au/consumerplan/plans?postcode=YOUR_POSTCODE", "YOUR_POSTCODE", fetchAll: false, concurrency: 2, onProgress: null, CancellationToken.None);
+        var stored = await fetcher.FetchPlansAsync("https://api.energymadeeasy.gov.au/consumerplan/plans?postcode=YOUR_POSTCODE", "YOUR_POSTCODE", fetchAll: false, currentOnly: false, concurrency: 2, onProgress: null, CancellationToken.None);
 
         Assert.Equal(2, stored.Plans.Count);
         var sr = stored.Plans.Single(p => p.PlanId == "SR1");
@@ -119,6 +119,61 @@ public class PlanFetcherTests
         Assert.Equal("SR", sr.TariffType);
         Assert.NotNull(tou.Contract.First().TariffPeriod!.First().TouBlock!.First().TimeOfUse);
         Assert.NotEmpty(tou.Contract.First().TariffPeriod!.First().TouBlock!.First().TimeOfUse!);
+    }
+
+    [Fact]
+    public async Task FetchPlansAsync_CurrentOnlyFiltersOutExpiredPlans()
+    {
+        var listJson = """
+{
+  "data": {
+    "plans": [
+      { "planId": "OLD1", "planData": { "planId": "OLD1", "planName": "Old", "retailerName": "Retailer", "tariffType": "SR", "contract": [ { "pricingModel": "SR" } ] } },
+      { "planId": "CUR1", "planData": { "planId": "CUR1", "planName": "Current", "retailerName": "Retailer", "tariffType": "SR", "contract": [ { "pricingModel": "SR" } ] } }
+    ]
+  }
+}
+""";
+
+        var oldDetail = """
+{
+  "data": { "planId": "OLD1", "planData": { "planId": "OLD1", "planName": "Old", "retailerName": "Retailer", "tariffType": "SR", "planStatus": "PUBLISHED", "effectiveDate": "2019-01-01", "contract": [ { "pricingModel": "SR", "tariffPeriod": [ { "startDate": "2019-01-01", "endDate": "2020-06-30", "blockRate": [ { "unitPrice": 20 } ] } ] } ] } }
+}
+""";
+
+        var curDetail = """
+{
+  "data": { "planId": "CUR1", "planData": { "planId": "CUR1", "planName": "Current", "retailerName": "Retailer", "tariffType": "SR", "planStatus": "PUBLISHED", "effectiveDate": "2026-01-01", "contract": [ { "pricingModel": "SR", "tariffPeriod": [ { "startDate": "2026-01-01", "endDate": "2030-12-31", "blockRate": [ { "unitPrice": 22 } ] } ] } ] } }
+}
+""";
+
+        var handler = new StubHandler(req =>
+        {
+            var url = req.RequestUri!.ToString();
+            if (url.Contains("/consumerplan/plans?", StringComparison.Ordinal))
+            {
+                return JsonResponse(listJson);
+            }
+
+            if (url.Contains("/consumerplan/plan/OLD1", StringComparison.Ordinal))
+            {
+                return JsonResponse(oldDetail);
+            }
+
+            if (url.Contains("/consumerplan/plan/CUR1", StringComparison.Ordinal))
+            {
+                return JsonResponse(curDetail);
+            }
+
+            throw new InvalidOperationException($"Unexpected URL: {url}");
+        });
+
+        using var client = new HttpClient(handler);
+        var fetcher = new PlanFetcher(client);
+        var stored = await fetcher.FetchPlansAsync("https://api.energymadeeasy.gov.au/consumerplan/plans?postcode=YOUR_POSTCODE", "YOUR_POSTCODE", fetchAll: false, currentOnly: true, concurrency: 2, onProgress: null, CancellationToken.None);
+
+        var only = Assert.Single(stored.Plans);
+        Assert.Equal("CUR1", only.PlanId);
     }
 
     private static HttpResponseMessage JsonResponse(string json) =>

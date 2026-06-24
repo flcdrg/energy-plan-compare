@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Globalization;
 using EnergyPlanCompare.Models;
 
 namespace EnergyPlanCompare.Services;
@@ -22,6 +23,7 @@ public sealed class PlanFetcher
         string listUrl,
         string postcode,
         bool fetchAll,
+        bool currentOnly,
         int concurrency,
         Action<int, int>? onProgress,
         CancellationToken cancellationToken)
@@ -37,7 +39,8 @@ public sealed class PlanFetcher
 
         foreach (var listItem in listResponse.Data.Plans)
         {
-            if (!fetchAll && !listItem.PlanData.TariffType.Equals("TOU", StringComparison.OrdinalIgnoreCase))
+            var mustFetchDetail = fetchAll || currentOnly || listItem.PlanData.TariffType.StartsWith("TOU", StringComparison.OrdinalIgnoreCase);
+            if (!mustFetchDetail)
             {
                 tasks.Add(Task.FromResult(listItem.PlanData));
                 var done = Interlocked.Increment(ref completed);
@@ -52,8 +55,13 @@ public sealed class PlanFetcher
             }, cancellationToken));
         }
 
-        var plans = await Task.WhenAll(tasks);
-        return new StoredPlans(DateTime.UtcNow, postcode, plans.ToList());
+        var plans = (await Task.WhenAll(tasks)).ToList();
+        if (currentOnly)
+        {
+            plans = plans.Where(IsCurrentlyAvailable).ToList();
+        }
+
+        return new StoredPlans(DateTime.UtcNow, postcode, plans);
     }
 
     private async Task<PlanData> FetchPlanDetailWithGateAsync(
@@ -79,5 +87,55 @@ public sealed class PlanFetcher
             semaphore.Release();
             onCompleted();
         }
+    }
+
+    private static bool IsCurrentlyAvailable(PlanData plan)
+    {
+        if (!string.IsNullOrWhiteSpace(plan.PlanStatus) &&
+            !plan.PlanStatus.Equals("PUBLISHED", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var effectiveDate = ParseDate(plan.EffectiveDate);
+        if (effectiveDate is not null && effectiveDate > today)
+        {
+            return false;
+        }
+
+        var periods = plan.Contract
+            .SelectMany(c => c.TariffPeriod ?? [])
+            .ToList();
+        if (periods.Count == 0)
+        {
+            return true;
+        }
+
+        foreach (var period in periods)
+        {
+            var start = ParseDate(period.StartDate);
+            var end = ParseDate(period.EndDate);
+            var startsOk = start is null || start <= today;
+            var endsOk = end is null || end >= today;
+            if (startsOk && endsOk)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static DateOnly? ParseDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null;
     }
 }
