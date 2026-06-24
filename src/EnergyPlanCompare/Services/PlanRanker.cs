@@ -5,7 +5,7 @@ namespace EnergyPlanCompare.Services;
 
 public sealed class PlanRanker
 {
-    public void Print(IReadOnlyList<PlanCostResult> results, int top)
+    public void Print(IReadOnlyList<PlanCostResult> results, int top, bool showUrls, string postcode)
     {
         var take = top > 0 ? Math.Min(top, results.Count) : results.Count;
         var table = new Table().RoundedBorder();
@@ -16,18 +16,30 @@ public sealed class PlanRanker
         table.AddColumn("Total ($)");
         table.AddColumn("$/day");
         table.AddColumn("Days");
+        if (showUrls)
+        {
+            table.AddColumn("URL");
+        }
 
         for (var i = 0; i < take; i++)
         {
             var item = results[i];
-            table.AddRow(
+            var row = new List<string>
+            {
                 (i + 1).ToString(),
                 item.PlanId,
                 Trim(item.RetailerName, 28),
                 item.TariffType,
                 item.TotalCostDollars.ToString("F2"),
                 item.DailyAverageDollars.ToString("F2"),
-                item.DayCount.ToString());
+                item.DayCount.ToString()
+            };
+            if (showUrls)
+            {
+                row.Add(BuildPlanUrl(item.PlanId, postcode));
+            }
+
+            table.AddRow(row.ToArray());
         }
 
         AnsiConsole.Write(table);
@@ -46,4 +58,7 @@ public sealed class PlanRanker
 
         return value.Length <= max ? value : value[..(max - 1)] + "…";
     }
+
+    private static string BuildPlanUrl(string planId, string postcode) =>
+        $"https://www.energymadeeasy.gov.au/plan?id={Uri.EscapeDataString(planId)}&postcode={Uri.EscapeDataString(postcode)}";
 }

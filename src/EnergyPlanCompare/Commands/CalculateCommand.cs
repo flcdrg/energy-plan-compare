@@ -31,6 +31,10 @@ public static class CalculateCommand
             Description = "Limit number of ranked results shown",
             DefaultValueFactory = _ => 20
         };
+        var urlOption = new Option<bool>("--url")
+        {
+            Description = "Include Energy Made Easy URL for each plan in output"
+        };
 
         var command = new Command("calculate", "Calculate and rank eligible plan costs");
         command.Options.Add(intervalOption);
@@ -40,6 +44,7 @@ public static class CalculateCommand
         command.Options.Add(batteryOption);
         command.Options.Add(pensionerOption);
         command.Options.Add(topOption);
+        command.Options.Add(urlOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -51,6 +56,7 @@ public static class CalculateCommand
                 parseResult.GetValue(batteryOption),
                 parseResult.GetValue(pensionerOption));
             var top = parseResult.GetValue(topOption);
+            var showUrls = parseResult.GetValue(urlOption);
 
             if (top < 1)
             {
@@ -88,7 +94,7 @@ public static class CalculateCommand
             }
 
             var ranker = new PlanRanker();
-            ranker.Print(ranked, top);
+            ranker.Print(ranked, top, showUrls, stored.Postcode);
             return 0;
         });
 

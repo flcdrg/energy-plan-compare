@@ -27,11 +27,13 @@ dotnet run --project src/EnergyPlanCompare -- calculate \
   --interval /path/to/MeterDataReport.csv \
   --plans plans.json \
   --smart-meter \
-  --top 20
+  --top 20 \
+  --url
 ```
 
 Optional eligibility flags: `--ev`, `--battery`, `--pensioner`.
 Use `--top` to limit how many ranked plans are displayed.
+Use `--url` to include a direct Energy Made Easy URL for each displayed plan.
 
 ## Test
 
