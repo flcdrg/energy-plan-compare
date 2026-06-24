@@ -1,6 +1,8 @@
 using System.CommandLine;
 using System.Text.Json;
+using EnergyPlanCompare.Models;
 using EnergyPlanCompare.Services;
+using Spectre.Console;
 
 namespace EnergyPlanCompare.Commands;
 
@@ -56,15 +58,39 @@ public static class FetchCommand
 
             using var httpClient = new HttpClient();
             var fetcher = new PlanFetcher(httpClient);
-            var plans = await fetcher.FetchPlansAsync(url, postcode, fetchAll, concurrency, cancellationToken);
+            StoredPlans? plans = null;
 
-            output.Directory?.Create();
-            await using var stream = output.Open(FileMode.Create, FileAccess.Write, FileShare.None);
-            await JsonSerializer.SerializeAsync(stream, plans, new JsonSerializerOptions { WriteIndented = true }, cancellationToken);
+            await AnsiConsole.Progress()
+                .AutoRefresh(true)
+                .Columns(
+                [
+                    new TaskDescriptionColumn(),
+                    new ProgressBarColumn(),
+                    new PercentageColumn(),
+                    new SpinnerColumn()
+                ])
+                .StartAsync(async context =>
+                {
+                    var task = context.AddTask("Loading plan data", maxValue: 1);
+                    plans = await fetcher.FetchPlansAsync(url, postcode, fetchAll, concurrency, (done, total) =>
+                    {
+                        task.MaxValue = Math.Max(1, total);
+                        task.Value = done;
+                    }, cancellationToken);
+                    task.StopTask();
+                });
 
-            var srCount = plans.Plans.Count(x => x.TariffType.Equals("SR", StringComparison.OrdinalIgnoreCase));
-            var touCount = plans.Plans.Count(x => x.TariffType.Equals("TOU", StringComparison.OrdinalIgnoreCase));
-            Console.WriteLine($"Fetched {plans.Plans.Count} plans (SR: {srCount}, TOU: {touCount}) -> {output.FullName}");
+            await AnsiConsole.Status().StartAsync("Saving plans JSON...", async _ =>
+            {
+                output.Directory?.Create();
+                await using var stream = output.Open(FileMode.Create, FileAccess.Write, FileShare.None);
+                await JsonSerializer.SerializeAsync(stream, plans, new JsonSerializerOptions { WriteIndented = true }, cancellationToken);
+            });
+
+            var safePlans = plans ?? throw new InvalidOperationException("Plan fetch produced no results.");
+            var srCount = safePlans.Plans.Count(x => x.TariffType.Equals("SR", StringComparison.OrdinalIgnoreCase));
+            var touCount = safePlans.Plans.Count(x => x.TariffType.Equals("TOU", StringComparison.OrdinalIgnoreCase));
+            AnsiConsole.MarkupLine($"[green]Fetched {safePlans.Plans.Count} plans[/] (SR: {srCount}, TOU: {touCount}) -> {output.FullName}");
             return 0;
         });
 

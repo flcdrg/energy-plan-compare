@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Text.Json;
 using EnergyPlanCompare.Models;
 using EnergyPlanCompare.Services;
+using Spectre.Console;
 
 namespace EnergyPlanCompare.Commands;
 
@@ -25,6 +26,11 @@ public static class CalculateCommand
         var evOption = new Option<bool>("--ev") { Description = "Customer has EV" };
         var batteryOption = new Option<bool>("--battery") { Description = "Customer has battery" };
         var pensionerOption = new Option<bool>("--pensioner") { Description = "Customer is pensioner" };
+        var topOption = new Option<int>("--top")
+        {
+            Description = "Limit number of ranked results shown",
+            DefaultValueFactory = _ => 20
+        };
 
         var command = new Command("calculate", "Calculate and rank eligible plan costs");
         command.Options.Add(intervalOption);
@@ -33,6 +39,7 @@ public static class CalculateCommand
         command.Options.Add(evOption);
         command.Options.Add(batteryOption);
         command.Options.Add(pensionerOption);
+        command.Options.Add(topOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -43,25 +50,45 @@ public static class CalculateCommand
                 parseResult.GetValue(evOption),
                 parseResult.GetValue(batteryOption),
                 parseResult.GetValue(pensionerOption));
+            var top = parseResult.GetValue(topOption);
 
-            var json = await File.ReadAllTextAsync(plansPath.FullName, cancellationToken);
-            var stored = JsonSerializer.Deserialize<StoredPlans>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                ?? throw new InvalidOperationException("Unable to deserialize plans JSON.");
+            if (top < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(top), "--top must be at least 1.");
+            }
+
+            StoredPlans stored = null!;
+            await AnsiConsole.Status().StartAsync("Loading plans JSON...", async _ =>
+            {
+                var json = await File.ReadAllTextAsync(plansPath.FullName, cancellationToken);
+                stored = JsonSerializer.Deserialize<StoredPlans>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? throw new InvalidOperationException("Unable to deserialize plans JSON.");
+            });
 
             var parser = new IntervalParser();
-            var intervalData = parser.Parse(intervalPath.FullName);
+            IntervalData intervalData = null!;
+            await AnsiConsole.Status().StartAsync("Parsing interval data...", _ =>
+            {
+                intervalData = parser.Parse(intervalPath.FullName);
+                return Task.CompletedTask;
+            });
 
             var calculator = new CostCalculator(new EligibilityFilter());
-            var ranked = calculator.RankPlans(stored.Plans, intervalData, requirements);
+            List<PlanCostResult> ranked = [];
+            await AnsiConsole.Status().StartAsync("Calculating plan costs...", _ =>
+            {
+                ranked = calculator.RankPlans(stored.Plans, intervalData, requirements);
+                return Task.CompletedTask;
+            });
 
             if (ranked.Count == 0)
             {
-                Console.WriteLine("No eligible plans found.");
+                AnsiConsole.MarkupLine("[yellow]No eligible plans found.[/]");
                 return 0;
             }
 
             var ranker = new PlanRanker();
-            ranker.Print(ranked);
+            ranker.Print(ranked, top);
             return 0;
         });
 

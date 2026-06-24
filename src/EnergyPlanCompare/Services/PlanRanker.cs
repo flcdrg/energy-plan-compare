@@ -1,17 +1,39 @@
 using EnergyPlanCompare.Models;
+using Spectre.Console;
 
 namespace EnergyPlanCompare.Services;
 
 public sealed class PlanRanker
 {
-    public void Print(IReadOnlyList<PlanCostResult> results)
+    public void Print(IReadOnlyList<PlanCostResult> results, int top)
     {
-        Console.WriteLine("Rank Plan ID         Retailer                     Type  Total($)  $/day  Days");
-        for (var i = 0; i < results.Count; i++)
+        var take = top > 0 ? Math.Min(top, results.Count) : results.Count;
+        var table = new Table().RoundedBorder();
+        table.AddColumn("Rank");
+        table.AddColumn("Plan ID");
+        table.AddColumn("Retailer");
+        table.AddColumn("Type");
+        table.AddColumn("Total ($)");
+        table.AddColumn("$/day");
+        table.AddColumn("Days");
+
+        for (var i = 0; i < take; i++)
         {
             var item = results[i];
-            Console.WriteLine(
-                $"{i + 1,4} {item.PlanId,-15} {Trim(item.RetailerName, 28),-28} {item.TariffType,-4} {item.TotalCostDollars,8:F2} {item.DailyAverageDollars,6:F2} {item.DayCount,5}");
+            table.AddRow(
+                (i + 1).ToString(),
+                item.PlanId,
+                Trim(item.RetailerName, 28),
+                item.TariffType,
+                item.TotalCostDollars.ToString("F2"),
+                item.DailyAverageDollars.ToString("F2"),
+                item.DayCount.ToString());
+        }
+
+        AnsiConsole.Write(table);
+        if (take < results.Count)
+        {
+            AnsiConsole.MarkupLine($"[grey]Showing top {take} of {results.Count} results. Use --top to change.[/]");
         }
     }
 
@@ -25,4 +47,3 @@ public sealed class PlanRanker
         return value.Length <= max ? value : value[..(max - 1)] + "…";
     }
 }
-

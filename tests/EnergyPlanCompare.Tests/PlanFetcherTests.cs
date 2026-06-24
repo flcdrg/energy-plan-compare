@@ -110,7 +110,7 @@ public class PlanFetcherTests
 
         using var client = new HttpClient(handler);
         var fetcher = new PlanFetcher(client);
-        var stored = await fetcher.FetchPlansAsync("https://api.energymadeeasy.gov.au/consumerplan/plans?postcode=YOUR_POSTCODE", "YOUR_POSTCODE", fetchAll: false, concurrency: 2, CancellationToken.None);
+        var stored = await fetcher.FetchPlansAsync("https://api.energymadeeasy.gov.au/consumerplan/plans?postcode=YOUR_POSTCODE", "YOUR_POSTCODE", fetchAll: false, concurrency: 2, onProgress: null, CancellationToken.None);
 
         Assert.Equal(2, stored.Plans.Count);
         var sr = stored.Plans.Single(p => p.PlanId == "SR1");

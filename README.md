@@ -18,16 +18,20 @@ dotnet run --project src/EnergyPlanCompare -- fetch \
 
 By default, only TOU plans are enriched with per-plan detail calls (SR plans are read from the list response). Use `--fetch-all` to fetch details for every plan.
 
+The fetch command now shows a progress bar while loading plans.
+
 ## Calculate and rank
 
 ```bash
 dotnet run --project src/EnergyPlanCompare -- calculate \
   --interval /path/to/MeterDataReport.csv \
   --plans plans.json \
-  --smart-meter
+  --smart-meter \
+  --top 20
 ```
 
 Optional eligibility flags: `--ev`, `--battery`, `--pensioner`.
+Use `--top` to limit how many ranked plans are displayed.
 
 ## Test
 
