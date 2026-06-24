@@ -35,6 +35,10 @@ public static class CalculateCommand
         {
             Description = "Include Energy Made Easy URL for each plan in output"
         };
+        var controlledLoadOption = new Option<bool>("--controlled-load")
+        {
+            Description = "Show only controlled-load plans"
+        };
 
         var command = new Command("calculate", "Calculate and rank eligible plan costs");
         command.Options.Add(intervalOption);
@@ -45,6 +49,7 @@ public static class CalculateCommand
         command.Options.Add(pensionerOption);
         command.Options.Add(topOption);
         command.Options.Add(urlOption);
+        command.Options.Add(controlledLoadOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -57,6 +62,7 @@ public static class CalculateCommand
                 parseResult.GetValue(pensionerOption));
             var top = parseResult.GetValue(topOption);
             var showUrls = parseResult.GetValue(urlOption);
+            var controlledLoadOnly = parseResult.GetValue(controlledLoadOption);
 
             if (top < 1)
             {
@@ -80,10 +86,12 @@ public static class CalculateCommand
             });
 
             var calculator = new CostCalculator(new EligibilityFilter());
+            var planFilter = new PlanFilter();
+            var filteredPlans = planFilter.FilterControlledLoad(stored.Plans, controlledLoadOnly);
             List<PlanCostResult> ranked = [];
             await AnsiConsole.Status().StartAsync("Calculating plan costs...", _ =>
             {
-                ranked = calculator.RankPlans(stored.Plans, intervalData, requirements);
+                ranked = calculator.RankPlans(filteredPlans, intervalData, requirements);
                 return Task.CompletedTask;
             });
 
