@@ -5,6 +5,8 @@ namespace EnergyPlanCompare.Services;
 
 public sealed class CostCalculator
 {
+    private const int DaysInYear = 365;
+
     private static readonly Dictionary<DayOfWeek, string> DayMap = new()
     {
         [DayOfWeek.Monday] = "MON",
@@ -99,20 +101,20 @@ public sealed class CostCalculator
             supplyCostCents += dailySupplyChargeCents;
         }
 
-        var totalCents = consumptionCostCents - feedInCreditCents + supplyCostCents;
+        var sampleTotalCents = consumptionCostCents - feedInCreditCents + supplyCostCents;
         var dayCount = intervalData.DayCount;
-        var totalDollars = Math.Round(totalCents / 100m, 2, MidpointRounding.AwayFromZero);
-        var dailyAverage = dayCount == 0
-            ? 0m
-            : Math.Round(totalDollars / dayCount, 2, MidpointRounding.AwayFromZero);
+        var dailyAverageCents = dayCount == 0 ? 0m : sampleTotalCents / dayCount;
+        var annualEstimateCents = dailyAverageCents * DaysInYear;
+        var annualEstimateDollars = Math.Round(annualEstimateCents / 100m, 2, MidpointRounding.AwayFromZero);
+        var dailyAverageDollars = Math.Round(dailyAverageCents / 100m, 2, MidpointRounding.AwayFromZero);
 
         return new PlanCostResult(
             plan.PlanId,
             plan.PlanName,
             plan.RetailerName,
             plan.TariffType,
-            totalDollars,
-            dailyAverage,
+            annualEstimateDollars,
+            dailyAverageDollars,
             dayCount,
             notes);
     }
@@ -261,4 +263,3 @@ public sealed class CostCalculator
         return touBlocks.FirstOrDefault()?.BlockRate?.FirstOrDefault()?.UnitPrice ?? 0m;
     }
 }
-

@@ -36,7 +36,8 @@ public class CostCalculatorTests
         var results = new CostCalculator(new EligibilityFilter()).RankPlans([plan], interval, new EligibilityRequirements(false, false, false, false));
         var result = Assert.Single(results);
 
-        Assert.Equal(1.90m, result.TotalCostDollars);
+        Assert.Equal(1.90m, result.DailyAverageDollars);
+        Assert.Equal(693.50m, result.TotalCostDollars);
     }
 
     [Fact]
@@ -67,7 +68,8 @@ public class CostCalculatorTests
         var result = Assert.Single(new CostCalculator(new EligibilityFilter())
             .RankPlans([plan], interval, new EligibilityRequirements(false, false, false, false)));
 
-        Assert.Equal(1.40m, result.TotalCostDollars);
+        Assert.Equal(1.40m, result.DailyAverageDollars);
+        Assert.Equal(511.00m, result.TotalCostDollars);
     }
 
     [Fact]
@@ -112,7 +114,8 @@ public class CostCalculatorTests
         var result = Assert.Single(new CostCalculator(new EligibilityFilter())
             .RankPlans([plan], interval, new EligibilityRequirements(false, false, false, false)));
 
-        Assert.Equal(0.80m, result.TotalCostDollars);
+        Assert.Equal(0.80m, result.DailyAverageDollars);
+        Assert.Equal(292.00m, result.TotalCostDollars);
     }
 
     private static decimal[] EmptyDay() => new decimal[288];

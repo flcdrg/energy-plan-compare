@@ -13,7 +13,7 @@ public sealed class PlanRanker
         table.AddColumn("Plan ID");
         table.AddColumn("Retailer");
         table.AddColumn("Type");
-        table.AddColumn("Total ($)");
+        table.AddColumn("Est. Annual ($)");
         table.AddColumn("$/day");
         table.AddColumn("Days");
         if (showUrls)
