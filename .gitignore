@@ -433,5 +433,4 @@ plans.json
 *.har
 *.csv
 # Stray per-plan JSON files (e.g. from debugging individual plan fetches)
-/*MRE*.json
-/*SRE*.json
+/*.json
