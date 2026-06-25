@@ -55,7 +55,14 @@ Only two checks apply when `--include-historical` is not set:
 **Tariff period dates are NOT used.** Many valid, currently-offered plans have stale `startDate`/`endDate` values years in the past (e.g. `2019-07-01 to 2019-06-30`). The website shows these plans regardless. Using tariff period dates for filtering incorrectly excluded dozens of valid plans.
 
 ### Eligibility filtering
-`EligibilityFilter` maps structured `type` codes (`SM`, `EV`, `BAT`) to boolean flags plus keyword-scans the free-text `description` field for `OC` (other conditions) restrictions. Plans that fail eligibility are silently excluded from results.
+`EligibilityFilter` maps structured restriction `type` codes to boolean flags on `EligibilityRequirements`. The `calculate` command accepts `--smart-meter`, `--ev`, `--battery`, `--solar`, and `--pensioner` flags.
+
+**Key rules per restriction type:**
+- `SM` (smart meter): skip if description contains "WILL INSTALL" (retailer installs, so no user requirement); otherwise require `--smart-meter`.
+- `CB` (community/home battery): only require `--battery` if description contains explicit requirement language (`"YOU MUST"`, `"MUST HAVE"`, `"ONLY AVAILABLE TO"`). Many `CB` entries are pricing methodology notes ("estimate based on typical battery system") and should be ignored.
+- `SP` (solar plan): only require `--solar` if description contains explicit requirement language. Pricing notes ("estimate based on typical solar system") are ignored.
+- `OC` (other conditions, free text): only filter for `NON-PENSIONER` + `--pensioner` check. **Do NOT keyword-scan for "BATTERY" or "EV"** — OC descriptions often mention these as part of plan names (e.g. "Battery Maximiser Terms") or pricing notes, not as hardware requirements.
+- All other types (`FF`, `SC`, `SN`, `SO`, `PS`) are currently not filtered.
 
 ### Anonymised test fixture
 `tests/EnergyPlanCompare.Tests/Fixtures/sample-interval-anonymised.csv` uses placeholder NMI `0000000000` and meter serial `ANON000001` with synthetically generated interval values. The real meter CSV must never be committed. Tests use `TestPaths.Fixture("filename")` to resolve fixture paths from the test output directory.
