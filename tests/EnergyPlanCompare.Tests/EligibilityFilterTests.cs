@@ -29,9 +29,11 @@ public class EligibilityFilterTests
     }
 
     [Fact]
-    public void IsEligible_RejectsBatteryPlanWhenCbRequirementAndNoBattery()
+    public void IsEligible_RejectsCbPlanWhenNoBattery()
     {
-        var plan = PlanWithRestriction(new EligibilityRestriction("CB", "You must have an eligible battery installed at your premises.", null));
+        // CB type means the plan is designed for battery owners — always requires --battery,
+        // even when the description only describes the pricing methodology ("estimate based on...")
+        var plan = PlanWithRestriction(new EligibilityRestriction("CB", "Usage price estimate based on a typical household battery system of 12.5kWh.", null));
         var filter = new EligibilityFilter();
 
         var eligible = filter.IsEligible(plan, new EligibilityRequirements(false, false, false, false), out _);
@@ -40,13 +42,12 @@ public class EligibilityFilterTests
     }
 
     [Fact]
-    public void IsEligible_AllowsBatteryPricingNotePlanWithoutBattery()
+    public void IsEligible_AllowsCbPlanWithBattery()
     {
-        // CB with "estimate" description is a pricing methodology note, not a hardware requirement
-        var plan = PlanWithRestriction(new EligibilityRestriction("CB", "Usage price estimate based on a typical household battery system of 12.5kWh.", null));
+        var plan = PlanWithRestriction(new EligibilityRestriction("CB", "You must have an eligible battery installed at your premises.", null));
         var filter = new EligibilityFilter();
 
-        var eligible = filter.IsEligible(plan, new EligibilityRequirements(false, false, false, false), out _);
+        var eligible = filter.IsEligible(plan, new EligibilityRequirements(false, false, true, false), out _);
 
         Assert.True(eligible);
     }

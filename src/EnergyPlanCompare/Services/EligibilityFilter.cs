@@ -30,10 +30,11 @@ public sealed class EligibilityFilter
                     break;
 
                 case "CB":
-                    // CB is used both for genuine battery requirements ("you must have a battery") and as
-                    // pricing methodology notes ("estimate based on typical battery system"). Only filter
-                    // if the description contains explicit requirement language.
-                    if (IsHardwareRequirement(descUpper) && !requirements.HasBattery)
+                    // CB means the plan is designed for customers with a home battery.
+                    // The description may say "estimate based on..." (pricing methodology) or
+                    // "you must have a battery" (explicit requirement), but either way the plan
+                    // requires battery hardware — it is never shown to customers without one.
+                    if (!requirements.HasBattery)
                     {
                         notes.Add("Requires battery");
                         return false;
