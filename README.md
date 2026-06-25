@@ -11,15 +11,14 @@ dotnet build EnergyPlanCompare.slnx
 
 ```bash
 dotnet run --project src/EnergyPlanCompare -- fetch \
-  --url "https://api.energymadeeasy.gov.au/consumerplan/plans?usageDataSource=noUsageFrontier&customerType=R&distE=&distG=&fuelType=E&journey=E&postcode=YOUR_POSTCODE" \
   --postcode YOUR_POSTCODE \
   --output plans.json
 ```
 
-By default, fetch stores only **currently available** plans (published + active tariff dates), which requires per-plan detail lookups.
-Use `--include-historical` to keep historical/expired plans. `--fetch-all` is also available to force detail fetches in any mode.
+The `--postcode` option is required. The list URL is automatically built from the postcode; pass `--url` to override it.
 
-The fetch command now shows a progress bar while loading plans.
+By default, fetch stores only **currently available** plans (published status and effective date not in the future), which requires per-plan detail lookups.
+Use `--include-historical` to keep historical/expired plans. `--fetch-all` is also available to force detail fetches in any mode.
 
 ## Calculate and rank
 

@@ -8,14 +8,14 @@ namespace EnergyPlanCompare.Commands;
 
 public static class FetchCommand
 {
-    private const string DefaultUrl = "https://api.energymadeeasy.gov.au/consumerplan/plans?usageDataSource=noUsageFrontier&customerType=R&distE=&distG=&fuelType=E&journey=E&postcode=YOUR_POSTCODE";
+    private static string BuildListUrl(string postcode) =>
+        $"https://api.energymadeeasy.gov.au/consumerplan/plans?usageDataSource=noUsageFrontier&customerType=R&distE=&distG=&fuelType=E&journey=E&postcode={postcode}";
 
     public static Command Build()
     {
-        var urlOption = new Option<string>("--url")
+        var urlOption = new Option<string?>("--url")
         {
-            Description = "Energy Made Easy list URL",
-            DefaultValueFactory = _ => DefaultUrl
+            Description = "Energy Made Easy list URL (defaults to standard SA residential URL for the given postcode)"
         };
 
         var outputOption = new Option<FileInfo>("--output")
@@ -26,9 +26,9 @@ public static class FetchCommand
 
         var postcodeOption = new Option<string>("--postcode")
         {
-            Description = "Postcode used for plan details",
-            DefaultValueFactory = _ => "YOUR_POSTCODE"
+            Description = "Postcode for plan lookup and detail fetches"
         };
+        postcodeOption.Required = true;
 
         var fetchAllOption = new Option<bool>("--fetch-all")
         {
@@ -56,9 +56,9 @@ public static class FetchCommand
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
-            var url = parseResult.GetValue(urlOption) ?? DefaultUrl;
+            var postcode = parseResult.GetValue(postcodeOption)!;
+            var url = parseResult.GetValue(urlOption) ?? BuildListUrl(postcode);
             var output = parseResult.GetValue(outputOption) ?? new FileInfo("plans.json");
-            var postcode = parseResult.GetValue(postcodeOption) ?? "YOUR_POSTCODE";
             var fetchAll = parseResult.GetValue(fetchAllOption);
             var includeHistorical = parseResult.GetValue(includeHistoricalOption);
             var concurrency = parseResult.GetValue(concurrencyOption);
