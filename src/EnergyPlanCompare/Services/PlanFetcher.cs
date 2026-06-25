@@ -104,27 +104,7 @@ public sealed class PlanFetcher
             return false;
         }
 
-        var periods = plan.Contract
-            .SelectMany(c => c.TariffPeriod ?? [])
-            .ToList();
-        if (periods.Count == 0)
-        {
-            return true;
-        }
-
-        foreach (var period in periods)
-        {
-            var start = ParseDate(period.StartDate);
-            var end = ParseDate(period.EndDate);
-            var startsOk = start is null || start <= today;
-            var endsOk = end is null || end >= today;
-            if (startsOk && endsOk)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return true;
     }
 
     private static DateOnly? ParseDate(string? value)

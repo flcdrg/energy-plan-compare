@@ -44,6 +44,16 @@ When a plan has multiple `tariffPeriod` entries (seasonal or successive), `CostC
 ### FiT rate selection
 Use `solarFit` entries with `type == "R"` (retailer FiT). Entries with `type == "G"` are legacy government Solar Bonus Scheme rates and are ignored.
 
+### Demand charge plans
+Plans where any `tariffPeriod` contains a `demandCharge` array are **always excluded** — our calculator cannot handle demand tariffs (charged on peak kW, not kWh). This matches the Energy Made Easy website behaviour exactly: 4 Alinta "Demand Single Rate" SR plans are excluded; no TOU plans have demand charges. `PlanFilter.FilterDemandPlans()` handles this, called unconditionally in `CalculateCommand`.
+
+### Plan availability filtering (`IsCurrentlyAvailable`)
+Only two checks apply when `--include-historical` is not set:
+1. `planStatus == "PUBLISHED"` (from detail API only; not present in list response)
+2. `effectiveDate <= today` if set
+
+**Tariff period dates are NOT used.** Many valid, currently-offered plans have stale `startDate`/`endDate` values years in the past (e.g. `2019-07-01 to 2019-06-30`). The website shows these plans regardless. Using tariff period dates for filtering incorrectly excluded dozens of valid plans.
+
 ### Eligibility filtering
 `EligibilityFilter` maps structured `type` codes (`SM`, `EV`, `BAT`) to boolean flags plus keyword-scans the free-text `description` field for `OC` (other conditions) restrictions. Plans that fail eligibility are silently excluded from results.
 

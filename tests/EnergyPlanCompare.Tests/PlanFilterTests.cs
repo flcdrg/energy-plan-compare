@@ -40,13 +40,60 @@ public class PlanFilterTests
         Assert.Contains(result, p => p.PlanId == "P3");
     }
 
-    private static PlanData BuildPlan(string planId, string tariffType, string pricingModel) =>
-        new(
+    [Fact]
+    public void FilterDemandPlans_ExcludesPlansWithDemandCharge()
+    {
+        var filter = new PlanFilter();
+        var plans = new List<PlanData>
+        {
+            BuildPlan("P1", "SR", "SR", hasDemandCharge: false),
+            BuildPlan("P2", "SR", "SR", hasDemandCharge: true),
+            BuildPlan("P3", "TOU", "TOU", hasDemandCharge: false)
+        };
+
+        var result = filter.FilterDemandPlans(plans);
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, p => p.PlanId == "P1");
+        Assert.Contains(result, p => p.PlanId == "P3");
+    }
+
+    [Fact]
+    public void HasDemandCharge_ReturnsTrueWhenDemandChargePresent()
+    {
+        var filter = new PlanFilter();
+        var plan = BuildPlan("P1", "SR", "SR", hasDemandCharge: true);
+
+        Assert.True(filter.HasDemandCharge(plan));
+    }
+
+    [Fact]
+    public void HasDemandCharge_ReturnsFalseWhenNoDemandCharge()
+    {
+        var filter = new PlanFilter();
+        var plan = BuildPlan("P1", "SR", "SR", hasDemandCharge: false);
+
+        Assert.False(filter.HasDemandCharge(plan));
+    }
+
+    private static PlanData BuildPlan(string planId, string tariffType, string pricingModel, bool hasDemandCharge = false)
+    {
+        var demandCharges = hasDemandCharge
+            ? new List<DemandCharge> { new(42.0m, "KWH") }
+            : null;
+        var tariffPeriod = new List<TariffPeriod>
+        {
+            new(BlockRate: [new(22m, null, "KWH")], TouBlock: null,
+                DailySupplyCharge: 95m, StartDate: null, EndDate: null,
+                BlockPeriod: null, DemandCharge: demandCharges)
+        };
+        return new(
             planId,
             $"Plan {planId}",
             "Retailer",
             tariffType,
             null,
             null,
-            [new Contract(pricingModel, null, null, null)]);
+            [new Contract(pricingModel, tariffPeriod, null, null)]);
+    }
 }

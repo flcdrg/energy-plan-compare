@@ -122,28 +122,38 @@ public class PlanFetcherTests
     }
 
     [Fact]
-    public async Task FetchPlansAsync_CurrentOnlyFiltersOutExpiredPlans()
+    public async Task FetchPlansAsync_CurrentOnlyFiltersOutNonPublishedAndFuturePlans()
     {
         var listJson = """
 {
   "data": {
     "plans": [
       { "planId": "OLD1", "planData": { "planId": "OLD1", "planName": "Old", "retailerName": "Retailer", "tariffType": "SR", "contract": [ { "pricingModel": "SR" } ] } },
-      { "planId": "CUR1", "planData": { "planId": "CUR1", "planName": "Current", "retailerName": "Retailer", "tariffType": "SR", "contract": [ { "pricingModel": "SR" } ] } }
+      { "planId": "CUR1", "planData": { "planId": "CUR1", "planName": "Current", "retailerName": "Retailer", "tariffType": "SR", "contract": [ { "pricingModel": "SR" } ] } },
+      { "planId": "FUT1", "planData": { "planId": "FUT1", "planName": "Future", "retailerName": "Retailer", "tariffType": "SR", "contract": [ { "pricingModel": "SR" } ] } }
     ]
   }
 }
 """;
 
+        // OLD1: status not PUBLISHED — excluded
         var oldDetail = """
 {
-  "data": { "planId": "OLD1", "planData": { "planId": "OLD1", "planName": "Old", "retailerName": "Retailer", "tariffType": "SR", "planStatus": "PUBLISHED", "effectiveDate": "2019-01-01", "contract": [ { "pricingModel": "SR", "tariffPeriod": [ { "startDate": "2019-01-01", "endDate": "2020-06-30", "blockRate": [ { "unitPrice": 20 } ] } ] } ] } }
+  "data": { "planId": "OLD1", "planData": { "planId": "OLD1", "planName": "Old", "retailerName": "Retailer", "tariffType": "SR", "planStatus": "INACTIVE", "effectiveDate": "2019-01-01", "contract": [ { "pricingModel": "SR", "tariffPeriod": [ { "blockRate": [ { "unitPrice": 20 } ] } ] } ] } }
 }
 """;
 
+        // CUR1: PUBLISHED, effectiveDate in past — included even with stale tariff period dates
         var curDetail = """
 {
-  "data": { "planId": "CUR1", "planData": { "planId": "CUR1", "planName": "Current", "retailerName": "Retailer", "tariffType": "SR", "planStatus": "PUBLISHED", "effectiveDate": "2026-01-01", "contract": [ { "pricingModel": "SR", "tariffPeriod": [ { "startDate": "2026-01-01", "endDate": "2030-12-31", "blockRate": [ { "unitPrice": 22 } ] } ] } ] } }
+  "data": { "planId": "CUR1", "planData": { "planId": "CUR1", "planName": "Current", "retailerName": "Retailer", "tariffType": "SR", "planStatus": "PUBLISHED", "effectiveDate": "2020-01-01", "contract": [ { "pricingModel": "SR", "tariffPeriod": [ { "startDate": "2019-01-01", "endDate": "2019-06-30", "blockRate": [ { "unitPrice": 22 } ] } ] } ] } }
+}
+""";
+
+        // FUT1: PUBLISHED but effectiveDate in the future — excluded
+        var futDetail = """
+{
+  "data": { "planId": "FUT1", "planData": { "planId": "FUT1", "planName": "Future", "retailerName": "Retailer", "tariffType": "SR", "planStatus": "PUBLISHED", "effectiveDate": "2099-01-01", "contract": [ { "pricingModel": "SR", "tariffPeriod": [ { "blockRate": [ { "unitPrice": 25 } ] } ] } ] } }
 }
 """;
 
@@ -163,6 +173,11 @@ public class PlanFetcherTests
             if (url.Contains("/consumerplan/plan/CUR1", StringComparison.Ordinal))
             {
                 return JsonResponse(curDetail);
+            }
+
+            if (url.Contains("/consumerplan/plan/FUT1", StringComparison.Ordinal))
+            {
+                return JsonResponse(futDetail);
             }
 
             throw new InvalidOperationException($"Unexpected URL: {url}");

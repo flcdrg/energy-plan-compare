@@ -40,7 +40,12 @@ public sealed record TariffPeriod(
     [property: JsonPropertyName("dailySupplyCharge")] decimal? DailySupplyCharge,
     [property: JsonPropertyName("startDate")] string? StartDate,
     [property: JsonPropertyName("endDate")] string? EndDate,
-    [property: JsonPropertyName("blockPeriod")] string? BlockPeriod);
+    [property: JsonPropertyName("blockPeriod")] string? BlockPeriod,
+    [property: JsonPropertyName("demandCharge")] List<DemandCharge>? DemandCharge);
+
+public sealed record DemandCharge(
+    [property: JsonPropertyName("rate")] decimal Rate,
+    [property: JsonPropertyName("measureUnit")] string? MeasureUnit);
 
 public sealed record BlockRate(
     [property: JsonPropertyName("unitPrice")] decimal UnitPrice,

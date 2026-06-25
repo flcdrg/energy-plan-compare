@@ -88,6 +88,7 @@ public static class CalculateCommand
             var calculator = new CostCalculator(new EligibilityFilter());
             var planFilter = new PlanFilter();
             var filteredPlans = planFilter.FilterControlledLoad(stored.Plans, includeControlledLoad);
+            filteredPlans = planFilter.FilterDemandPlans(filteredPlans);
             List<PlanCostResult> ranked = [];
             await AnsiConsole.Status().StartAsync("Calculating plan costs...", _ =>
             {

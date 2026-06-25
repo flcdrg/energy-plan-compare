@@ -18,7 +18,7 @@ public class CostCalculatorTests
             [
                 new Contract(
                     "SR",
-                    [new TariffPeriod([new BlockRate(20m, null, "KWH")], null, 100m, null, null, "P1D")],
+                    [new TariffPeriod([new BlockRate(20m, null, "KWH")], null, 100m, null, null, "P1D", null)],
                     [new SolarFit("R", "FiT", [new SolarFitRate(10m, null)])],
                     null)
             ]);
@@ -53,7 +53,7 @@ public class CostCalculatorTests
             [
                 new Contract(
                     "SR",
-                    [new TariffPeriod([new BlockRate(10m, 10m, "KWH"), new BlockRate(20m, null, "KWH")], null, 0m, null, null, "P1D")],
+                    [new TariffPeriod([new BlockRate(10m, 10m, "KWH"), new BlockRate(20m, null, "KWH")], null, 0m, null, null, "P1D", null)],
                     null,
                     null)
             ]);
@@ -97,7 +97,8 @@ public class CostCalculatorTests
                             0m,
                             null,
                             null,
-                            "P1D")
+                            "P1D",
+                            null)
                     ],
                     null,
                     null)
