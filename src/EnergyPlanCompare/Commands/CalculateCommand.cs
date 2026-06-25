@@ -40,6 +40,10 @@ public static class CalculateCommand
         {
             Description = "Include controlled-load plans in results (excluded by default)"
         };
+        var currentPlanOption = new Option<string?>("--current")
+        {
+            Description = "Plan ID of the customer's current plan (shown first in grey for comparison)"
+        };
 
         var command = new Command("calculate", "Calculate and rank eligible plan costs");
         command.Options.Add(intervalOption);
@@ -52,6 +56,7 @@ public static class CalculateCommand
         command.Options.Add(topOption);
         command.Options.Add(urlOption);
         command.Options.Add(controlledLoadOption);
+        command.Options.Add(currentPlanOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -66,6 +71,7 @@ public static class CalculateCommand
             var top = parseResult.GetValue(topOption);
             var showUrls = parseResult.GetValue(urlOption);
             var includeControlledLoad = parseResult.GetValue(controlledLoadOption);
+            var currentPlanId = parseResult.GetValue(currentPlanOption);
 
             if (top < 1)
             {
@@ -106,7 +112,7 @@ public static class CalculateCommand
             }
 
             var ranker = new PlanRanker();
-            ranker.Print(ranked, top, showUrls, stored.Postcode);
+            ranker.Print(ranked, top, showUrls, stored.Postcode, currentPlanId);
             return 0;
         });
 
