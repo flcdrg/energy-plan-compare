@@ -27,8 +27,19 @@ Two-phase workflow: **fetch** (write `plans.json`) → **calculate** (read `plan
 
 ### `calculate` command  
 - Parses the interval CSV into two streams: `B1` (solar generation) and `E1` (consumption from grid), each as `Dictionary<DateOnly, decimal[]>` with 288 five-minute slots per day
+- **Auto-detects file format**: NEM12 (first line starts with a numeric record indicator like `200,`) or Globird meter report (starts with `Nmi,`)
 - For each eligible plan: calculates consumption cost, subtracts FiT solar credits, adds daily supply charge, then annualises by `(total / dayCount) * 365`
 - Controlled-load plans (tariff type or pricing model containing `CL`) are **excluded by default**; pass `--controlled-load` to include them
+
+### NEM12 format (AEMO MDFF Specification NEM12/NEM13 v2.7)
+Supported record types:
+- `100` — file header (optional in SAPN Detailed export); skipped
+- `200` — NMI Data Details: identifies stream type from **col[4] (NMISuffix)** (`E1`=consumption, `B1`=generation) and interval length from **col[8] (IntervalLength)**: `5`, `15`, or `30` minutes
+- `300` — Interval Data: col[1]=date (`yyyyMMdd`), col[2..N+1]=N interval values (N = 288/96/48 depending on interval length), trailing quality fields
+- `400` — Interval Events (quality overrides); skipped
+- `900` — end of file
+
+**Interval normalisation**: 15-min (96 slots) and 30-min (48 slots) data is expanded to 288 five-minute slots by dividing each value by the expansion factor (3 or 6) and repeating. Total energy is preserved.
 
 ## Key Conventions
 
