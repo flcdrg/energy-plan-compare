@@ -53,13 +53,23 @@ public sealed class EligibilityFilter
                     break;
 
                 case "OC":
-                    // Free-text "other conditions". Only filter for clear pensioner exclusion.
-                    // Do not keyword-scan for EV/battery — OC descriptions often mention these as pricing
-                    // methodology notes or in plan names (e.g. "Battery Maximiser Terms"), not as hardware
-                    // requirements.
+                    // Free-text "other conditions". Only filter for unambiguous exclusions.
                     if (descUpper.Contains("NON-PENSIONER") && requirements.IsPensioner)
                     {
                         notes.Add("Excludes pensioners");
+                        return false;
+                    }
+                    // Plans that are explicitly for households WITHOUT solar or battery
+                    // (e.g. Amber "No Feed-In" plans: "pricing estimate is for households
+                    // without a solar or battery system")
+                    if (descUpper.Contains("WITHOUT") && descUpper.Contains("SOLAR") && requirements.HasSolar)
+                    {
+                        notes.Add("For households without solar");
+                        return false;
+                    }
+                    if (descUpper.Contains("WITHOUT") && descUpper.Contains("BATTERY") && requirements.HasBattery)
+                    {
+                        notes.Add("For households without battery");
                         return false;
                     }
                     break;

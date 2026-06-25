@@ -101,6 +101,43 @@ public class EligibilityFilterTests
     }
 
     [Fact]
+    public void IsEligible_RejectsNoSolarPlanWhenUserHasSolar()
+    {
+        // Plans explicitly for households WITHOUT solar should be excluded for solar customers
+        var plan = PlanWithRestriction(new EligibilityRestriction("OC",
+            "The pricing estimate is for households without a solar or battery system", null));
+        var filter = new EligibilityFilter();
+
+        var eligible = filter.IsEligible(plan, new EligibilityRequirements(false, false, false, false, HasSolar: true), out _);
+
+        Assert.False(eligible);
+    }
+
+    [Fact]
+    public void IsEligible_AllowsNoSolarPlanWhenUserHasNoSolar()
+    {
+        var plan = PlanWithRestriction(new EligibilityRestriction("OC",
+            "The pricing estimate is for households without a solar or battery system", null));
+        var filter = new EligibilityFilter();
+
+        var eligible = filter.IsEligible(plan, new EligibilityRequirements(false, false, false, false), out _);
+
+        Assert.True(eligible);
+    }
+
+    [Fact]
+    public void IsEligible_RejectsNoBatteryPlanWhenUserHasBattery()
+    {
+        var plan = PlanWithRestriction(new EligibilityRestriction("OC",
+            "The pricing estimate is for households without a battery system", null));
+        var filter = new EligibilityFilter();
+
+        var eligible = filter.IsEligible(plan, new EligibilityRequirements(false, false, HasBattery: true, false), out _);
+
+        Assert.False(eligible);
+    }
+
+    [Fact]
     public void IsEligible_AllowsPlanWithoutRestrictions()
     {
         var plan = new PlanData("P0", "Plan", "Retailer", "SR", null, null, [new Contract("SR", null, null, null)]);
