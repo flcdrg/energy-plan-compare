@@ -4,5 +4,6 @@ public sealed record EligibilityRequirements(
     bool HasSmartMeter,
     bool HasEv,
     bool HasBattery,
-    bool IsPensioner);
+    bool IsPensioner,
+    bool HasSolar = false);
 

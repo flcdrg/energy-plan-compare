@@ -16,35 +16,63 @@ public sealed class EligibilityFilter
         foreach (var restriction in restrictions)
         {
             var type = (restriction.Type ?? string.Empty).Trim().ToUpperInvariant();
-            var description = (restriction.Description ?? string.Empty).Trim();
-            var combined = $"{type} {description}".ToUpperInvariant();
+            var descUpper = (restriction.Description ?? string.Empty).Trim().ToUpperInvariant();
 
-            if (type == "SM" && !requirements.HasSmartMeter)
+            switch (type)
             {
-                notes.Add("Requires smart meter");
-                return false;
-            }
+                case "SM":
+                    // "will install" means the retailer installs a smart meter for you — not a requirement
+                    if (!descUpper.Contains("WILL INSTALL") && !requirements.HasSmartMeter)
+                    {
+                        notes.Add("Requires smart meter");
+                        return false;
+                    }
+                    break;
 
-            if ((combined.Contains("EV") || combined.Contains("ELECTRIC VEHICLE")) && !requirements.HasEv)
-            {
-                notes.Add("Requires EV");
-                return false;
-            }
+                case "CB":
+                    // CB is used both for genuine battery requirements ("you must have a battery") and as
+                    // pricing methodology notes ("estimate based on typical battery system"). Only filter
+                    // if the description contains explicit requirement language.
+                    if (IsHardwareRequirement(descUpper) && !requirements.HasBattery)
+                    {
+                        notes.Add("Requires battery");
+                        return false;
+                    }
+                    break;
 
-            if (combined.Contains("BATTERY") && !requirements.HasBattery)
-            {
-                notes.Add("Requires battery");
-                return false;
-            }
+                case "SP":
+                    // SP is used both for genuine solar requirements ("only available to solar customers")
+                    // and pricing methodology notes ("estimate based on typical solar system"). Only filter
+                    // if the description contains explicit requirement language.
+                    if (IsHardwareRequirement(descUpper) && !requirements.HasSolar)
+                    {
+                        notes.Add("Requires solar panels");
+                        return false;
+                    }
+                    break;
 
-            if (combined.Contains("NON-PENSIONER") && requirements.IsPensioner)
-            {
-                notes.Add("Excludes pensioners");
-                return false;
+                case "OC":
+                    // Free-text "other conditions". Only filter for clear pensioner exclusion.
+                    // Do not keyword-scan for EV/battery — OC descriptions often mention these as pricing
+                    // methodology notes or in plan names (e.g. "Battery Maximiser Terms"), not as hardware
+                    // requirements.
+                    if (descUpper.Contains("NON-PENSIONER") && requirements.IsPensioner)
+                    {
+                        notes.Add("Excludes pensioners");
+                        return false;
+                    }
+                    break;
             }
         }
 
         return true;
     }
+
+    // Detects language that indicates a genuine eligibility requirement rather than a pricing note.
+    private static bool IsHardwareRequirement(string descUpper) =>
+        descUpper.Contains("YOU MUST") ||
+        descUpper.Contains("MUST HAVE") ||
+        descUpper.Contains("MUST BE") ||
+        descUpper.Contains("ONLY AVAILABLE TO");
 }
 

@@ -24,7 +24,8 @@ public static class CalculateCommand
 
         var smartMeterOption = new Option<bool>("--smart-meter") { Description = "Customer has smart meter" };
         var evOption = new Option<bool>("--ev") { Description = "Customer has EV" };
-        var batteryOption = new Option<bool>("--battery") { Description = "Customer has battery" };
+        var batteryOption = new Option<bool>("--battery") { Description = "Customer has home battery" };
+        var solarOption = new Option<bool>("--solar") { Description = "Customer has solar panels" };
         var pensionerOption = new Option<bool>("--pensioner") { Description = "Customer is pensioner" };
         var topOption = new Option<int>("--top")
         {
@@ -46,6 +47,7 @@ public static class CalculateCommand
         command.Options.Add(smartMeterOption);
         command.Options.Add(evOption);
         command.Options.Add(batteryOption);
+        command.Options.Add(solarOption);
         command.Options.Add(pensionerOption);
         command.Options.Add(topOption);
         command.Options.Add(urlOption);
@@ -59,7 +61,8 @@ public static class CalculateCommand
                 parseResult.GetValue(smartMeterOption),
                 parseResult.GetValue(evOption),
                 parseResult.GetValue(batteryOption),
-                parseResult.GetValue(pensionerOption));
+                parseResult.GetValue(pensionerOption),
+                parseResult.GetValue(solarOption));
             var top = parseResult.GetValue(topOption);
             var showUrls = parseResult.GetValue(urlOption);
             var includeControlledLoad = parseResult.GetValue(controlledLoadOption);
