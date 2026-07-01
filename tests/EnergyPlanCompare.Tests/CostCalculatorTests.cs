@@ -119,5 +119,153 @@ public class CostCalculatorTests
         Assert.Equal(292.00m, result.TotalCostDollars);
     }
 
+    [Fact]
+    public void RankPlans_TouHandlesMidnightWraparoundWindow()
+    {
+        // "Peak" wraps past midnight (1500-0059); listed after "Shoulder" so a naive first-block
+        // fallback (pre-fix behaviour) would incorrectly charge the Shoulder rate for these hours.
+        var shoulderWindow = new TouTimeOfUse("SUN|MON|TUE|WED|THU|FRI|SAT", "0600", "1459");
+        var peakWindow = new TouTimeOfUse("SUN|MON|TUE|WED|THU|FRI|SAT", "1500", "0059");
+        var plan = new PlanData(
+            "PLAN-TOU-WRAP",
+            "TOU Wraparound Plan",
+            "Test Retailer",
+            "TOU",
+            null,
+            null,
+            [
+                new Contract(
+                    "TOU",
+                    [
+                        new TariffPeriod(
+                            null,
+                            [
+                                new TouBlock("Shoulder", "S", [new BlockRate(20m, null, "KWH")], [shoulderWindow]),
+                                new TouBlock("Peak", "P", [new BlockRate(50m, null, "KWH")], [peakWindow])
+                            ],
+                            0m,
+                            null,
+                            null,
+                            "P1D",
+                            null)
+                    ],
+                    null,
+                    null)
+            ]);
+
+        var consumption = EmptyDay();
+        consumption[276] = 1m; // 23:00 -> should match wraparound Peak window, not fallback
+        consumption[6] = 1m;   // 00:30 -> also within the wraparound Peak window
+
+        var interval = new IntervalData(
+            new Dictionary<DateOnly, decimal[]> { [new DateOnly(2026, 6, 20)] = EmptyDay() },
+            new Dictionary<DateOnly, decimal[]> { [new DateOnly(2026, 6, 20)] = consumption });
+
+        var result = Assert.Single(new CostCalculator(new EligibilityFilter())
+            .RankPlans([plan], interval, new EligibilityRequirements(false, false, false, false)));
+
+        // 2 kWh at the 50c/kWh Peak rate = 100 cents = $1.00/day
+        Assert.Equal(1.00m, result.DailyAverageDollars);
+        Assert.Equal(365.00m, result.TotalCostDollars);
+    }
+
+    [Fact]
+    public void RankPlans_SelectsSeasonalTariffPeriodByUsageDateNotLatestStartDate()
+    {
+        // Summer's startDate string ("2026-10-01") sorts later than Winter's ("2026-05-01"), so
+        // picking a single globally "latest" period (pre-fix behaviour) would apply Summer's rate
+        // to winter usage too. Each usage date must be matched to its own season.
+        var summerPeriod = new TariffPeriod(
+            [new BlockRate(50m, null, "KWH")], null, 0m, "2026-10-01", "2026-04-30", "P1Y", null);
+        var winterPeriod = new TariffPeriod(
+            [new BlockRate(10m, null, "KWH")], null, 0m, "2026-05-01", "2026-09-30", "P1Y", null);
+
+        var plan = new PlanData(
+            "PLAN-SEASONAL",
+            "Seasonal Plan",
+            "Test Retailer",
+            "SR",
+            null,
+            null,
+            [new Contract("SR", [summerPeriod, winterPeriod], null, null)]);
+
+        var winterUsage = EmptyDay();
+        winterUsage[0] = 1m; // 15 Jul 2026 -> Winter season, rate 10c
+        var summerUsage = EmptyDay();
+        summerUsage[0] = 1m; // 15 Nov 2026 -> Summer season, rate 50c
+
+        var interval = new IntervalData(
+            new Dictionary<DateOnly, decimal[]>
+            {
+                [new DateOnly(2026, 7, 15)] = EmptyDay(),
+                [new DateOnly(2026, 11, 15)] = EmptyDay()
+            },
+            new Dictionary<DateOnly, decimal[]>
+            {
+                [new DateOnly(2026, 7, 15)] = winterUsage,
+                [new DateOnly(2026, 11, 15)] = summerUsage
+            });
+
+        var result = Assert.Single(new CostCalculator(new EligibilityFilter())
+            .RankPlans([plan], interval, new EligibilityRequirements(false, false, false, false)));
+
+        // (1kWh * 10c) + (1kWh * 50c) = 60 cents over 2 days -> $0.30/day average
+        Assert.Equal(0.30m, result.DailyAverageDollars);
+        Assert.Equal(109.50m, result.TotalCostDollars);
+    }
+
+    [Fact]
+    public void RankPlans_AppliesTieredBlockRateWithinTouWindow()
+    {
+        // The TOU block's own blockRate list carries volume tiers (first 24kWh free, then 20c/kWh),
+        // mirroring real "Solar Sharer" / "Free Usage" TOU plans. Pre-fix, only BlockRate[0]
+        // (0c/kWh) was ever used, so the second tier's usage was priced at zero.
+        var window = new TouTimeOfUse("SUN|MON|TUE|WED|THU|FRI|SAT", "0000", "2359");
+        var plan = new PlanData(
+            "PLAN-TOU-TIERED",
+            "TOU Tiered Plan",
+            "Test Retailer",
+            "TOU",
+            null,
+            null,
+            [
+                new Contract(
+                    "TOU",
+                    [
+                        new TariffPeriod(
+                            null,
+                            [
+                                new TouBlock(
+                                    "Shoulder",
+                                    "S",
+                                    [new BlockRate(0m, 24m, "KWH"), new BlockRate(20m, null, "KWH")],
+                                    [window])
+                            ],
+                            0m,
+                            null,
+                            null,
+                            "P1D",
+                            null)
+                    ],
+                    null,
+                    null)
+            ]);
+
+        var consumption = EmptyDay();
+        consumption[0] = 24m; // consumes the whole free tier
+        consumption[1] = 6m;  // spills into the 20c/kWh tier
+
+        var interval = new IntervalData(
+            new Dictionary<DateOnly, decimal[]> { [new DateOnly(2026, 6, 20)] = EmptyDay() },
+            new Dictionary<DateOnly, decimal[]> { [new DateOnly(2026, 6, 20)] = consumption });
+
+        var result = Assert.Single(new CostCalculator(new EligibilityFilter())
+            .RankPlans([plan], interval, new EligibilityRequirements(false, false, false, false)));
+
+        // 24kWh free + 6kWh * 20c = 120 cents = $1.20/day
+        Assert.Equal(1.20m, result.DailyAverageDollars);
+        Assert.Equal(438.00m, result.TotalCostDollars);
+    }
+
     private static decimal[] EmptyDay() => new decimal[288];
 }
