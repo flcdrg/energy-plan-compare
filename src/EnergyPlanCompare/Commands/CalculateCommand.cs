@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using System.Text.Json;
 using EnergyPlanCompare.Models;
 using EnergyPlanCompare.Services;
@@ -44,6 +45,22 @@ public static class CalculateCommand
         {
             Description = "Plan ID of the customer's current plan (shown first in grey for comparison)"
         };
+        var typicalDayOption = new Option<string?>("--typical-day")
+        {
+            Description = "Use only one historical day for costing (format: yyyy-mm-dd)"
+        };
+        var evForecastOption = new Option<bool>("--ev-forecast")
+        {
+            Description = "Reallocate each historical day of usage using an EV charging window weighting"
+        };
+        var evWindowOption = new Option<string?>("--ev-window")
+        {
+            Description = "EV charging window as start-end hour (24h), e.g. 0-6 or 22-6"
+        };
+        var evWindowPercentageOption = new Option<decimal?>("--ev-window-percentage")
+        {
+            Description = "Percentage of each day's usage allocated to the EV window (0-100)"
+        };
 
         var command = new Command("calculate", "Calculate and rank eligible plan costs");
         command.Options.Add(intervalOption);
@@ -57,6 +74,10 @@ public static class CalculateCommand
         command.Options.Add(urlOption);
         command.Options.Add(controlledLoadOption);
         command.Options.Add(currentPlanOption);
+        command.Options.Add(typicalDayOption);
+        command.Options.Add(evForecastOption);
+        command.Options.Add(evWindowOption);
+        command.Options.Add(evWindowPercentageOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -72,10 +93,51 @@ public static class CalculateCommand
             var showUrls = parseResult.GetValue(urlOption);
             var includeControlledLoad = parseResult.GetValue(controlledLoadOption);
             var currentPlanId = parseResult.GetValue(currentPlanOption);
+            var typicalDayRaw = parseResult.GetValue(typicalDayOption);
+            var evForecast = parseResult.GetValue(evForecastOption);
+            var evWindow = parseResult.GetValue(evWindowOption);
+            var evWindowPercentage = parseResult.GetValue(evWindowPercentageOption);
 
             if (top < 1)
             {
                 throw new ArgumentOutOfRangeException(nameof(top), "--top must be at least 1.");
+            }
+
+            DateOnly? typicalDay = null;
+            if (!string.IsNullOrWhiteSpace(typicalDayRaw))
+            {
+                if (!DateOnly.TryParseExact(typicalDayRaw, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+                {
+                    throw new ArgumentException("--typical-day must be in yyyy-mm-dd format.");
+                }
+
+                typicalDay = parsed;
+            }
+
+            EvForecastSettings? evForecastSettings = null;
+            if (evForecast)
+            {
+                if (string.IsNullOrWhiteSpace(evWindow))
+                {
+                    throw new ArgumentException("--ev-window is required when --ev-forecast is enabled.");
+                }
+
+                if (evWindowPercentage is null)
+                {
+                    throw new ArgumentException("--ev-window-percentage is required when --ev-forecast is enabled.");
+                }
+
+                var (startHour, endHour) = ParseEvWindow(evWindow);
+                if (evWindowPercentage < 0m || evWindowPercentage > 100m)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(evWindowPercentage), "--ev-window-percentage must be between 0 and 100.");
+                }
+
+                evForecastSettings = new EvForecastSettings(startHour, endHour, evWindowPercentage.Value);
+            }
+            else if (!string.IsNullOrWhiteSpace(evWindow) || evWindowPercentage is not null)
+            {
+                throw new ArgumentException("--ev-window and --ev-window-percentage can only be used with --ev-forecast.");
             }
 
             StoredPlans stored = null!;
@@ -93,6 +155,18 @@ public static class CalculateCommand
                 intervalData = parser.Parse(intervalPath.FullName);
                 return Task.CompletedTask;
             });
+
+            if (typicalDay is not null)
+            {
+                var intervalFilter = new IntervalDataFilter();
+                intervalData = intervalFilter.ForDate(intervalData, typicalDay.Value);
+            }
+
+            if (evForecastSettings is not null)
+            {
+                var forecaster = new EvForecastUsageReallocator();
+                intervalData = forecaster.Reallocate(intervalData, evForecastSettings);
+            }
 
             var calculator = new CostCalculator(new EligibilityFilter());
             var planFilter = new PlanFilter();
@@ -117,5 +191,33 @@ public static class CalculateCommand
         });
 
         return command;
+    }
+
+    private static (int StartHour, int EndHour) ParseEvWindow(string value)
+    {
+        var parts = value.Split('-', StringSplitOptions.TrimEntries);
+        if (parts.Length != 2 ||
+            !int.TryParse(parts[0], out var startHour) ||
+            !int.TryParse(parts[1], out var endHour))
+        {
+            throw new ArgumentException("--ev-window must be in the format <start>-<end>, e.g. 0-6 or 22-6.");
+        }
+
+        if (startHour < 0 || startHour > 23)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "--ev-window start hour must be between 0 and 23.");
+        }
+
+        if (endHour < 0 || endHour > 24)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "--ev-window end hour must be between 0 and 24.");
+        }
+
+        if (startHour == endHour)
+        {
+            throw new ArgumentException("--ev-window must span at least one hour.");
+        }
+
+        return (startHour, endHour);
     }
 }
