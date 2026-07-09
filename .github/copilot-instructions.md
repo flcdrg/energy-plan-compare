@@ -23,11 +23,13 @@ Two-phase workflow: **fetch** (write `plans.json`) → **calculate** (read `plan
 - Calls the Energy Made Easy list API to get all plans for a postcode
 - SR plans are used as-is from the list response (complete pricing data)
 - TOU plans (tariff type starts with `TOU`) must be individually fetched because the list endpoint omits `timeOfUse` schedule windows
-- By default, keeps only currently available plans (`planStatus == PUBLISHED` + at least one active `tariffPeriod` for today's date); use `--include-historical` to keep expired ones
+- By default, keeps only currently available plans (`planStatus == PUBLISHED` and `effectiveDate <= today` when set); use `--include-historical` to keep expired plans
 
 ### `calculate` command  
 - Parses the interval CSV into two streams: `B1` (solar generation) and `E1` (consumption from grid), each as `Dictionary<DateOnly, decimal[]>` with 288 five-minute slots per day
 - **Auto-detects file format**: NEM12 (first line starts with a numeric record indicator like `200,`) or Globird meter report (starts with `Nmi,`)
+- Optional `--typical-day yyyy-mm-dd` limits costing to one day from the interval file
+- Optional EV forecast mode (`--ev-forecast`) reallocates each day's usage by a configured EV charging window (`--ev-window`) and target window share (`--ev-window-percentage`)
 - For each eligible plan: calculates consumption cost, subtracts FiT solar credits, adds daily supply charge, then annualises by `(total / dayCount) * 365`
 - Controlled-load plans (tariff type or pricing model containing `CL`) are **excluded by default**; pass `--controlled-load` to include them
 
@@ -50,7 +52,9 @@ All `unitPrice`, `dailySupplyCharge` values from the API are in **cents/kWh** an
 `TouTimeOfUse.StartTime`/`EndTime` are 4-digit strings in `HHMM` format (e.g. `"0600"`, `"0959"`). Slot index maps to `HHMM` via `(slot * 5 / 60) * 100 + (slot * 5 % 60)`. End times are **inclusive** (`0959` covers slot 119, i.e. 09:55–09:59).
 
 ### Tariff period selection
-When a plan has multiple `tariffPeriod` entries (seasonal or successive), `CostCalculator.SelectTariffPeriod` uses the one with the latest `startDate`, falling back to `tariffPeriod[0]` if none have dates.
+When a plan has multiple `tariffPeriod` entries:
+- `CostCalculator.SelectTariffPeriodForDate` first tries to match each usage date to a seasonal period by month/day range using `startDate` and `endDate`
+- If no seasonal match is found, `CostCalculator.SelectTariffPeriod` falls back to the period with the latest `startDate`, then `tariffPeriod[0]`
 
 ### FiT rate selection
 Use `solarFit` entries with `type == "R"` (retailer FiT). Entries with `type == "G"` are legacy government Solar Bonus Scheme rates and are ignored.
@@ -64,6 +68,17 @@ Only two checks apply when `--include-historical` is not set:
 2. `effectiveDate <= today` if set
 
 **Tariff period dates are NOT used.** Many valid, currently-offered plans have stale `startDate`/`endDate` values years in the past (e.g. `2019-07-01 to 2019-06-30`). The website shows these plans regardless. Using tariff period dates for filtering incorrectly excluded dozens of valid plans.
+
+### `--typical-day` behavior
+- `--typical-day yyyy-mm-dd` filters interval data to a single consumption day before plan costing
+- If solar data exists for that date, it is included; if not, costing still proceeds with consumption-only data
+- If consumption data for the date is missing, `calculate` fails with a clear error
+
+### EV forecast behavior
+- EV forecast mode is enabled with `--ev-forecast`
+- It requires both `--ev-window <start>-<end>` and `--ev-window-percentage <0..100>`
+- `--ev-window` supports overnight windows (for example `22-6`) and uses start-inclusive/end-exclusive hour bounds
+- Daily kWh is preserved, then redistributed so the specified percentage lands inside the EV window
 
 ### Eligibility filtering
 `EligibilityFilter` maps structured restriction `type` codes to boolean flags on `EligibilityRequirements`. The `calculate` command accepts `--smart-meter`, `--ev`, `--battery`, `--solar`, and `--pensioner` flags.
@@ -83,3 +98,7 @@ Only two checks apply when `--include-historical` is not set:
 
 ### `PlanData` model is shared across contexts
 The same `PlanData` record is used for both the list API response and the stored `plans.json`. When adding fields, update `ApiModels.cs` and update all `new PlanData(...)` call sites in tests (positional record constructor).
+
+## Other rules
+
+- Avoid including any personally identifiable information (PII) in test fixtures or documentation. Use anonymized or synthetic data where possible.

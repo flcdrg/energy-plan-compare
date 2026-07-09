@@ -39,6 +39,12 @@ Controlled-load plans are excluded by default; use `--controlled-load` to includ
 The `Total` column is an estimated annual cost based on the provided interval sample.
 Use `--typical-day yyyy-mm-dd` to run the comparison using only one day from the interval data.
 
+Typical-day mode details:
+- The date format must be `yyyy-mm-dd`
+- If solar data exists for that date, it is included
+- If solar data is missing for that date, comparison still runs using consumption-only data
+- If consumption data for that date is missing, `calculate` exits with an error
+
 EV forecast mode can be used to test how shifting load into EV charging hours changes plan costs:
 
 ```bash
@@ -53,6 +59,7 @@ dotnet run --project src/EnergyPlanCompare -- calculate \
 
 In forecast mode, each historical day keeps the same total kWh, but usage is reweighted so that the configured percentage of that day sits inside the EV window.
 `--ev-window` supports overnight windows (for example `22-6`). Hours are interpreted as start-inclusive, end-exclusive.
+`--ev-forecast` requires both `--ev-window` and `--ev-window-percentage`.
 
 ## Test
 
